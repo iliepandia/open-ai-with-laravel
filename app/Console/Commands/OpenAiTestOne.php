@@ -6,21 +6,21 @@ use Illuminate\Console\Command;
 use OpenAI\Laravel\Facades\OpenAI as OpenBaseAI;
 use OpenAI\Responses\Chat\CreateStreamedResponseChoice;
 
-class OpenAi extends Command
+class OpenAiTestOne extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'app:open-ai';
+    protected $signature = 'app:open-ai-test-one';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'The initial playground for open AI';
 
     /**
      * Execute the console command.
