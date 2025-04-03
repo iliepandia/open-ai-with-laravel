@@ -126,7 +126,7 @@ class WpPost extends Model
     public function url() : Attribute
     {
         return Attribute::make(
-            get: fn(mixed $value, array $attributes )=>"https://ineliabenz.com/" . $attributes['post_name']
+            get: fn(mixed $value, array $attributes )=>"https://blog.ineliabenz.com/" . $attributes['post_name'] . "/"
         );
     }
 

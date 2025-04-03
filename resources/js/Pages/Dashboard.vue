@@ -38,7 +38,12 @@
                                 {{ message.text }}
                             </div>
                             <div>
-                                <h3 class="mt-2 font-bold">References</h3>
+                                <h3
+                                    v-if="message.annotations"
+                                    class="mt-2 font-bold"
+                                >
+                                    References
+                                </h3>
                                 <div
                                     v-for="(
                                         annotation, index
