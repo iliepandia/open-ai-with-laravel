@@ -10,7 +10,13 @@ use PhpParser\Lexer\TokenEmulator\AttributeEmulator;
 
 class WpPost extends Model
 {
-    protected $table = "soar_posts";
+    protected $table = "posts";
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->table = config('app.wp_db_prefix') . $this->table;
+    }
 
     protected $connection = "mysql-live";
 
@@ -79,7 +85,6 @@ class WpPost extends Model
               get: function(mixed $value, array $attributes ){
                   $content = $this->post_content;
                   $matches = [];
-                  //<a class="button" href="https://ineliabenz.com/wp-content/uploads/2017/10/interview-with-an-alien-by-inelia-benz-first-chapter.pdf">Read the First Chapter</a>
                   if(preg_match( '#"button" href="(.*)">.?Read the First Chapter#iu', $content, $matches )){
                       return $matches[1];
                   }
@@ -101,7 +106,6 @@ class WpPost extends Model
               get: function(mixed $value, array $attributes ){
                   $content = $this->post_content;
                   $matches = [];
-                  //<a class="button" href="https://ineliabenz.com/wp-content/uploads/2017/10/interview-with-an-alien-by-inelia-benz-first-chapter.pdf">Read the First Chapter</a>
                   if(preg_match( '#"button" href="(.*)">(.*)?</a>#iu', $content, $matches )){
                       return $matches[2];
                   }
@@ -126,7 +130,7 @@ class WpPost extends Model
     public function url() : Attribute
     {
         return Attribute::make(
-            get: fn(mixed $value, array $attributes )=>"https://blog.ineliabenz.com/" . $attributes['post_name'] . "/"
+            get: fn(mixed $value, array $attributes )=>config('app.blog_site_url') . $attributes['post_name'] . "/"
         );
     }
 

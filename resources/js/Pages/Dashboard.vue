@@ -10,7 +10,7 @@
             </h2>
         </template>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div
                     class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800"
@@ -22,16 +22,29 @@
             </div>
         </div>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div>
                     <div
                         v-for="message in messages"
                         :key="message.id"
+                        :class="message.source === 'ai' ? 'ml-6' : 'mt-6 shadow-md'"
                         class="my-2 rounded-md bg-white px-4 py-4"
                     >
                         <div>
-                            <span class="font-bold">{{ message.source }}</span>
+                            <span
+                                :class="
+                                    message.source === 'ai'
+                                        ? 'text-red-500'
+                                        : ''
+                                "
+                                class="font-bold"
+                                >{{
+                                    message.source === 'user'
+                                        ? page.props.auth.user.name
+                                        : 'The Amazing AI'
+                                }}</span
+                            >
                         </div>
                         <div>
                             <div>
@@ -39,7 +52,7 @@
                             </div>
                             <div>
                                 <h3
-                                    v-if="message.annotations"
+                                    v-if="message.annotations?.length"
                                     class="mt-2 font-bold"
                                 >
                                     References
@@ -63,7 +76,7 @@
                     </div>
                 </div>
                 <div
-                    class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800"
+                    class="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800"
                 >
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <form @submit.prevent="submit">

@@ -106,7 +106,7 @@ class OpenAiApiController extends Controller
         return $formattedAnnotations;
     }
     protected function getResponseFromAI(PromptRequest $request){
-        $assistantId = config('assistant_id', 'asst_cKjU5k7pNvSJK016uR8V4RAa');
+        $assistantId = config('assistant_id', config('app.open_ai_agent_id'));
         $prompt = $request->get('prompt');
         $threadId = session()->get("threadId", null);
 

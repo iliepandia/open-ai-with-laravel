@@ -2,6 +2,19 @@
 
 return [
 
+    'open_ai_agent_id' => env('OPEN_AI_AGENT' ),
+
+    'blog_site_url' => env('BLOG_SITE_URL', 'example.com'),
+
+    'wp_db_prefix' => env('WP_PREFIX', 'wp_'),
+
+    'allow_registration' => boolval(env('ALLOW_USER_REGISTRATION', false )),
+
+    'limits' => [
+        'per_day' => env("LIMITS_PROMPTS_PER_DAY", 5000 ),
+        'per_minute' => env("LIMITS_PROMPTS_PER_MINUTE", 60 ),
+        'per_hour' => env("LIMITS_PROMPTS_PER_HOURS", 2000 ),
+    ],
     /*
     |--------------------------------------------------------------------------
     | Application Name

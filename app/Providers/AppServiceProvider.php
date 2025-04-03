@@ -25,11 +25,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
 
-        RateLimiter::for("ai-call", function(Request $request) {
+        RateLimiter::for("ai-call", function (Request $request) {
             return [
-                Limit::perDay(4000),
-                Limit::perMinute(app()->isProduction() ? 60 : 120 )->by('minute:' . $request->user()->id ),
-                Limit::perHour(app()->isProduction() ? 1000 : 2000)->by('hour:' . $request->user()->id ),
+                Limit::perDay(config('app.limits.per_day')),
+                Limit::perMinute(config('app.limits.per_minute'))->by('minute:' . $request->user()->id),
+                Limit::perHour(config('app.limits.per_hour'))->by('hour:' . $request->user()->id),
             ];
         });
     }
