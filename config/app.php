@@ -5,6 +5,7 @@ return [
     'open_ai_agent_id' => env('OPEN_AI_AGENT' ),
 
     'blog_site_url' => env('BLOG_SITE_URL', 'example.com'),
+    'store_site_url' => env('STORE_SITE_URL', 'example.com'),
 
     'wp_db_prefix' => env('WP_PREFIX', 'wp_'),
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\PromptRequest;
 use App\Models\WpPost;
+use Illuminate\Support\Facades\Storage;
 use OpenAI\Laravel\Facades\OpenAI as OpenBaseAI;
 use OpenAI\Responses\Threads\Messages\ThreadMessageListResponse;
 
@@ -65,39 +66,79 @@ class OpenAiApiController extends Controller
 
         return $referencedArticles;
     }
+
+    protected function getReferencedProducts( array $annotations )
+    {
+        \Log::debug( "Product Annotations", ['annotations'=>$annotations] );
+
+        $referencedProducts = [];
+        foreach ($annotations as $text => $fileName ) {
+            $data = Storage::disk('local')->get("products/{$fileName}");
+            if($data){
+                $data = json_decode($data, true);
+            }
+            if(!$data) continue;
+            $post = WpPost::query()->where('ID', $data['wp_post_id'])->with('params')->first();
+            $referencedProducts[$text] = [
+                'title' => "Class: " . $post->name,
+                'url' => $post->url,
+            ];
+        }
+
+        return $referencedProducts;
+    }
     protected function getAnnotationsFromAI(ThreadMessageListResponse $list) : array
     {
         $formattedAnnotations = [];
         foreach ($list->data as $message) {
             $annotations = [];
+            $productAnnotations = [];
 
             //Link annotation text to file names...
             foreach ($message->content[0]->text->annotations as $annotation) {
                 if($annotation->fileCitation?->fileId){
                     //TODO: We should be caching these...
                     $fileResponse = OpenBaseAI::files()->retrieve($annotation->fileCitation->fileId);
-                    if(!str_starts_with($fileResponse->filename, "article-")){
-                        //TODO: A more abstract resolver/validator - now we assume that the relevant file starts with this string
+                    //TODO: A more abstract resolver/validator - now we assume that the relevant file starts with this string
+                    if(str_starts_with($fileResponse->filename, "article-")){
+                        $annotations[$annotation->text] = $fileResponse->filename;
                         continue;
                     }
-                    $annotations[$annotation->text] = $fileResponse->filename;
+                    if(str_starts_with($fileResponse->filename, "product-")){
+                        $productAnnotations[$annotation->text] = $fileResponse->filename;
+                    }
                 }
             }
 
             $referencedArticles  = $this->getReferencedArticles($annotations);
+            $referencedProducts =  $this->getReferencedProducts($productAnnotations);
 
             $noteIndex = 0;
-            foreach ($annotations as $text => $fileId) {
+            foreach ($annotations as $text => $fileName) {
                 $noteIndex++;
                 $annotationText = " [$noteIndex]";
 
-                $articleTitle =$referencedArticles[$text]['title']??$fileId;
+                $articleTitle =$referencedArticles[$text]['title']??$fileName;
                 $articleUrl = $referencedArticles[$text]['url']??'--missing--';
                 $formattedAnnotations []= [
                     'original_text' => $text,
                     'note' => $annotationText,
                     'title' => $articleTitle,
                     'url' => $articleUrl,
+                ];
+            }
+
+            foreach($productAnnotations as $text => $fileName ){
+                $noteIndex++;
+                $annotationText = " [$noteIndex]";
+
+                $productTitle =$referencedProducts[$text]['title']??$fileName;
+                $productUrl = $referencedProducts[$text]['url']??'--missing--';
+                $formattedAnnotations []= [
+                    'original_text' => $text,
+                    'note' => $annotationText,
+                    'title' => $productTitle,
+                    'url' => $productUrl,
                 ];
             }
             //TODO: Why are the annotations like 4:0 and 4:8 -- what is the thing after the :

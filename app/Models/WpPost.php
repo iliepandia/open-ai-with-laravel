@@ -130,7 +130,9 @@ class WpPost extends Model
     public function url() : Attribute
     {
         return Attribute::make(
-            get: fn(mixed $value, array $attributes )=>config('app.blog_site_url') . $attributes['post_name'] . "/"
+            get: fn(mixed $value, array $attributes )=>
+                ($attributes['post_type'] =='post' ? config('app.blog_site_url') : config('app.store_site_url')) .
+                $attributes['post_name'] . "/"
         );
     }
 
