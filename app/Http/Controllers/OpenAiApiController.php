@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\PromptRequest;
+use App\Models\Conversation;
+use App\Models\OpenAiMessage;
 use App\Models\WpPost;
 use Illuminate\Support\Facades\Storage;
+use OpenAI\Enums\Moderations\Category;
 use OpenAI\Laravel\Facades\OpenAI as OpenBaseAI;
 use OpenAI\Responses\Threads\Messages\ThreadMessageListResponse;
 
@@ -13,7 +16,6 @@ class OpenAiApiController extends Controller
 
     protected function resetThread()
     {
-        session()->put("messages", []);
         session()->forget("threadId");
         session()->flash("success", "Conversation reset!");
     }
@@ -169,7 +171,13 @@ class OpenAiApiController extends Controller
             $threadId = $response->threadId;
             $responseId = $response->id;
             session()->put("threadId", $threadId);
-            \Log::debug("Thread Response", ['thread' => $response]);
+            OpenAiMessage::create([
+                'assistant_id' => $assistantId,
+                'thread_id' => $threadId,
+                'run_id' => $responseId,
+                'raw_message' => print_r($threadId, 1),
+                'prompt' => $prompt,
+            ]);
         } else {
             $response = OpenBaseAI::threads()->runs()->create($threadId, [
                 'assistant_id' => $assistantId,
@@ -181,10 +189,25 @@ class OpenAiApiController extends Controller
                 ],
             ]);
             $responseId = $response->id;
+            OpenAiMessage::create([
+                'assistant_id' => $assistantId,
+                'thread_id' => $threadId,
+                'run_id' => $responseId,
+                'raw_message' => print_r($response, 1),
+                'prompt' => $prompt,
+            ]);
         }
 
         //Pool the response status
         $response = $this->waitForAiResponse($threadId,$responseId);
+
+        OpenAiMessage::create([
+            'assistant_id' => $assistantId,
+            'thread_id' => $threadId,
+            'run_id' => $responseId,
+            'raw_message' => print_r($response, 1),
+            'prompt' => $prompt,
+        ]);
 
         if ($response->status != 'completed') {
             \Log::error( "Failed to get an answer from ai.", ['response' => $response] );
@@ -205,6 +228,15 @@ class OpenAiApiController extends Controller
 
         $annotations = $this->getAnnotationsFromAI($list);
 
+        OpenAiMessage::create([
+            'assistant_id' => $assistantId,
+            'thread_id' => $threadId,
+            'run_id' => $responseId,
+            'raw_message' => print_r($list, 1),
+            'raw_annotations' => json_encode($annotations, JSON_PRETTY_PRINT),
+            'prompt' => $prompt,
+        ]);
+
         foreach($annotations as $annotation){
             //TODO: we need a more abstract way to do this
             $message = str_replace( $annotation['original_text'], $annotation['note'], $message );
@@ -214,6 +246,9 @@ class OpenAiApiController extends Controller
             'text' => $message,
             'source' => 'ai',
             'annotations' => $annotations,
+            'assistant_id' => $assistantId,
+            'thread_id' => $threadId,
+            'run_id' => $responseId,
         ];
     }
     /**
@@ -225,19 +260,29 @@ class OpenAiApiController extends Controller
             $this->resetThread();
             return redirect()->route('dashboard');
         }
-
-        $messages = session()->get("messages", []);
+        $aiResponse = $this->getResponseFromAI($request);
 
         //Add the user message to the list...
-        $messages [] = [
-            'text' => $request->prompt,
-            'source' => 'user'
-        ];
+        Conversation::create([
+            'user_id' => $request->user()->id,
+            'message' => $request->prompt,
+            'source' => 'user',
+            'assistant_id' => $aiResponse['assistant_id'],
+            'thread_id' => $aiResponse['thread_id'],
+            'run_id' => $aiResponse['run_id'],
+        ]);
 
         //Add the AI message to the list...
-        $messages []= $this->getResponseFromAI($request);
+        Conversation::create([
+            'user_id' => $request->user()->id,
+            'message' => $aiResponse['text'],
+            'annotations' => json_encode($aiResponse['annotations'], JSON_PRETTY_PRINT),
+            'source' => 'ai',
+            'assistant_id' => $aiResponse['assistant_id'],
+            'thread_id' => $aiResponse['thread_id'],
+            'run_id' => $aiResponse['run_id'],
+        ]);
 
-        session()->put("messages", $messages);
         return redirect()->route('dashboard');
     }
 

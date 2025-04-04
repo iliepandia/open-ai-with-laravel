@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+ol {
+    @apply list-decimal list-inside space-y-2; /* Example styles */
+}
+
+h1 {
+    @apply font-bold my-2 text-gray-900 dark:text-gray-100; /* Example styles */
+}

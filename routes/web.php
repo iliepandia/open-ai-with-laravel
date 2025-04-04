@@ -1,10 +1,10 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Models\Conversation;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use OpenAI\Laravel\Facades\OpenAI;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -16,9 +16,18 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    $messages = session()->get("messages", []);
     $userId = \request()->user()->id;
-    \Log::debug("Conversation so far for user: {$userId}", $messages);
+    $threadId = session()->get('threadId', 'not-set');
+    $messages = Conversation::where('thread_id', $threadId)
+        ->where('user_id', $userId)->orderBy('id')->get()->toArray();
+    $messages = array_map(function($message){
+        unset($message['assistant_id']);
+        unset($message['run_id']);
+        if($message['annotations']){
+            $message['annotations'] = json_decode($message['annotations']);
+        }
+        return $message;
+    }, $messages);
     return Inertia::render('Dashboard', [
         'messages' => $messages,
     ]);

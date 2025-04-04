@@ -49,9 +49,10 @@
                             >
                         </div>
                         <div>
-                            <div>
-                                {{ message.text }}
+                            <div v-if="message.source === 'user'">
+                                {{ message.message }}
                             </div>
+                            <div v-else v-html="md.render(message.message)" />
                             <div>
                                 <h3
                                     v-if="message.annotations?.length"
@@ -139,6 +140,9 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
+import markdownit from 'markdown-it';
+
+const md = markdownit();
 
 const page = usePage();
 
