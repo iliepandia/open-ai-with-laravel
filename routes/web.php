@@ -37,6 +37,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('api')->middleware(['throttle:ai-call'])->group(function () {
         Route::post('ask-ai', [\App\Http\Controllers\OpenAiApiController::class, 'askAi']);
+        Route::post('vote-message', [\App\Http\Controllers\OpenAiApiController::class, 'voteMessage']);
     });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -28,6 +28,7 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
+        "@heroicons/vue": "^2.2.0",
         "markdown-it": "^14.1.0"
     }
 }

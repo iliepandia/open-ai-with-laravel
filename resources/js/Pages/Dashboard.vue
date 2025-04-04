@@ -52,7 +52,9 @@
                             <div v-if="message.source === 'user'">
                                 {{ message.message }}
                             </div>
-                            <div v-else v-html="md.render(message.message)" />
+                            <div v-else>
+                                <div v-html="md.render(message.message)" />
+                            </div>
                             <div>
                                 <h3
                                     v-if="message.annotations?.length"
@@ -74,6 +76,10 @@
                                         {{ annotation.title }}</a
                                     >
                                 </div>
+                                <FeedbackForm
+                                    :message="message"
+                                    @update-messages="updateMessages"
+                                />
                             </div>
                         </div>
                     </div>
@@ -81,7 +87,9 @@
                 <div
                     class="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800"
                 >
-                    <div class="p-6 text-gray-900 dark:bg-gray-800 dark:text-gray-100">
+                    <div
+                        class="p-6 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                    >
                         <form @submit.prevent="submit">
                             <div class="mb-4">
                                 <label
@@ -141,6 +149,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 import markdownit from 'markdown-it';
+import FeedbackForm from '@/Components/OpenAi/FeedbackForm.vue';
 
 const md = markdownit();
 
@@ -157,6 +166,10 @@ const form = useForm({
     prompt: null,
     newThread: false,
 });
+
+const updateMessages = (newMessages) => {
+    messages.value = newMessages;
+};
 
 onMounted(() => {
     console.log('Props on the page:', page.props);

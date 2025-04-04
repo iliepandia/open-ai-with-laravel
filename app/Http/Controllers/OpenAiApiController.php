@@ -6,8 +6,8 @@ use App\Http\Requests\PromptRequest;
 use App\Models\Conversation;
 use App\Models\OpenAiMessage;
 use App\Models\WpPost;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use OpenAI\Enums\Moderations\Category;
 use OpenAI\Laravel\Facades\OpenAI as OpenBaseAI;
 use OpenAI\Responses\Threads\Messages\ThreadMessageListResponse;
 
@@ -250,6 +250,12 @@ class OpenAiApiController extends Controller
             'thread_id' => $threadId,
             'run_id' => $responseId,
         ];
+    }
+    public function voteMessage(Request $request)
+    {
+        $conversation = Conversation::where('id', $request->get('id') )->firstOrFail();
+        $conversation->feedback = $request->get('up');
+        $conversation->save();
     }
     /**
      * Store a newly created resource in storage.
