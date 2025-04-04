@@ -28,8 +28,10 @@
                     <div
                         v-for="message in messages"
                         :key="message.id"
-                        :class="message.source === 'ai' ? 'ml-6' : 'mt-6 shadow-md'"
-                        class="my-2 rounded-md bg-white px-4 py-4"
+                        :class="
+                            message.source === 'ai' ? 'ml-6' : 'mt-6 shadow-md'
+                        "
+                        class="my-2 rounded-md bg-white px-4 py-4 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                     >
                         <div>
                             <span
@@ -64,7 +66,7 @@
                                     :key="index"
                                 >
                                     <a
-                                        class="text-blue-600"
+                                        class="text-blue-600 dark:text-blue-400"
                                         target="_blank"
                                         :href="annotation.url"
                                         >{{ annotation.note }}
@@ -78,16 +80,16 @@
                 <div
                     class="mt-6 overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800"
                 >
-                    <div class="p-6 text-gray-900 dark:text-gray-100">
+                    <div class="p-6 text-gray-900 dark:bg-gray-800 dark:text-gray-100">
                         <form @submit.prevent="submit">
                             <div class="mb-4">
                                 <label
-                                    class="mb-2 block text-sm font-bold text-gray-700"
+                                    class="mb-2 block text-sm font-bold text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                                     for="question"
                                     >Ask your question*:</label
                                 >
                                 <textarea
-                                    class="w-full rounded-md border px-3 py-2 focus:border-blue-100 focus:outline-none focus:ring disabled:opacity-25"
+                                    class="w-full rounded-md border px-3 py-2 text-gray-900 focus:border-blue-100 focus:outline-none focus:ring disabled:opacity-25 dark:bg-gray-200 dark:focus:ring-orange-600"
                                     id="question"
                                     :disabled="form.processing"
                                     required
