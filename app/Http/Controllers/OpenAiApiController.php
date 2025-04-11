@@ -22,6 +22,67 @@ class OpenAiApiController extends Controller
         session()->flash("success", "Conversation reset!");
     }
 
+    protected function getToolResult( $name, $args ){
+        //TODO: these should be logged!
+        if($name == 'list_all_the_products'){
+            return [
+                [
+                    "url" => "https://ineliabenz.com/fear-processing",
+                    "price" => "9.99",
+                    "title" => "Fear Processing Exercise",
+                    "description" => "Exercise to process your fear"
+                ],
+                [
+                    "url" => "https://ineliabenz.com/telepathy",
+                    "price" => "21.99",
+                    "title" => "Experiential Telepathy",
+                    "description" => "Develop your psychic abilities. Communicate with the world around you using only your mind."
+                ],
+                [
+                    "url" => "https://ineliabenz.com/ascension",
+                    "price" => "990",
+                    "title" => "Ascension Course",
+                    "description" => "A course that will provide ascension information for the user."
+                ],
+            ];
+        }
+        return [
+            'error' => 'true',
+            'message' => 'no information available for the requested params',
+        ];
+    }
+    protected function handleToolExecution($response) : array
+    {
+        if ( $response['status'] != 'requires_action' ||
+            ($response['required_action']['type']??false) != 'submit_tool_outputs' ){
+            //nothing to do
+            return $response;
+        }
+
+        //Let's call all the tools and build the output results
+        $outputs = [];
+        foreach( $response['required_action']['submit_tool_outputs']['tool_calls'] as $toolCall ){
+            $functionName = $toolCall['function']['name'];
+            $arguments =  $toolCall['function']['arguments'];
+            $output = $this->getToolResult($functionName,$arguments);
+            $outputs []= [
+                'tool_call_id' => $toolCall['id'],
+                'output' => json_encode($output, JSON_PRETTY_PRINT),
+            ];
+        }
+
+        if(empty($output)){
+            return $response;
+        }
+
+        $ai = new OpenAiApi();
+        return $ai->threads_runs_submit_tool_outputs(
+            threadId:  $response['thread_id'],
+            runId: $response['id'],
+            outputs: $outputs
+        );
+    }
+
     protected function waitForAiResponse($threadId, $responseId ) : array
     {
         $ai = new OpenAiApi();
@@ -32,6 +93,9 @@ class OpenAiApiController extends Controller
             usleep(config('app.poll_sleep_time', 400));
 
             $response = $ai->threads_runs_retrieve($threadId,$responseId);
+
+            $response = $this->handleToolExecution($response);
+
             //TODO: We can have a bunch of statuses here!
         } while ($response['status'] != 'completed' && !$timeOut);
 
@@ -217,8 +281,11 @@ class OpenAiApiController extends Controller
         if ($response['status'] != 'completed') {
             \Log::error( "Failed to get an answer from ai.", ['response' => $response] );
             return [
-                'text' => "Failed to get an answer from AI. Try to reset the conversation.",
-                'source' => 'ai'
+                'text' => "Failed to get an answer from AI. Try to reset the conversation. Status was {$response['status']}.",
+                'source' => 'ai',
+                'assistant_id' => $assistantId,
+                'thread_id' => $threadId,
+                'run_id' => $runId,
             ];
         }
 
@@ -285,8 +352,8 @@ class OpenAiApiController extends Controller
         //Add the AI message to the list...
         Conversation::create([
             'user_id' => $request->user()->id,
-            'message' => $aiResponse['text'],
-            'annotations' => json_encode($aiResponse['annotations'], JSON_PRETTY_PRINT),
+            'message' => $aiResponse['text']??null,
+            'annotations' => json_encode($aiResponse['annotations']??null, JSON_PRETTY_PRINT),
             'source' => 'ai',
             'assistant_id' => $aiResponse['assistant_id'],
             'thread_id' => $aiResponse['thread_id'],

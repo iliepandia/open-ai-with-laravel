@@ -2,6 +2,8 @@
 
 namespace App\Services\OpenAi;
 
+use App\Models\OpenAiApiLog;
+use App\Models\User;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
@@ -15,7 +17,8 @@ class OpenAiApi
 
     protected Client $client;
 
-    public function __construct(protected string $apiKey = '')
+
+    public function __construct(protected string $apiKey = '', protected ?User $user = null)
     {
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
@@ -23,6 +26,9 @@ class OpenAiApi
         ]);
         if (empty($this->apiKey)) {
             $this->apiKey = config('openai.api_key');
+        }
+        if(empty($this->user)){
+            $this->user = auth()->user();
         }
     }
 
@@ -104,8 +110,27 @@ class OpenAiApi
             $options['query'] = $queryParams;
         }
         try {
-            return $this->client->request($method, $url, $options);
+            $start = microtime( true );
+            $logOptions = $options;
+            unset($logOptions['headers']['Authorization']);
+            $log = OpenAiApiLog::create([
+                'user_id' => $this->user?->id,
+                'request' => json_encode([
+                    'method' => $method,
+                    'url' => $url,
+                    'options' => $logOptions,
+                ], JSON_PRETTY_PRINT )
+            ]);
+            $response = $this->client->request($method, $url, $options);
+            $duration = microtime(true) - $start;
+            $log->update([
+                'response' => $response->getBody()->getContents(),
+                'duration' => $duration,
+            ]);
+            $response->getBody()->rewind();
+            return $response;
         } catch (GuzzleException $e) {
+            Log::error("Error while calling the OpenAI API.", ['exception' => $e ]);
             if ($e instanceof ClientException) {
                 throw new \RuntimeException("Guzzle Exception: {$e->getResponse()->getBody()->getContents()}", previous: $e);
             }
@@ -147,6 +172,19 @@ class OpenAiApi
             url: 'threads/{{thread_id}}/messages',
             urlParams: ['thread_id' => $threadId],
             queryParams: $params,
+            cache: false,
+        );
+    }
+
+    public function threads_runs_submit_tool_outputs($threadId, $runId, array $outputs) : array
+    {
+        return self::jsonCall(
+            method: 'POST',
+            url: 'threads/{{thread_id}}/runs/{{run_id}}/submit_tool_outputs',
+            urlParams: ['thread_id' => $threadId, 'run_id' => $runId ],
+            jsonBody: [
+                'tool_outputs' => $outputs,
+            ],
             cache: false,
         );
     }
