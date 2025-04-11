@@ -22,27 +22,28 @@ class OpenAiApiController extends Controller
         session()->flash("success", "Conversation reset!");
     }
 
-    protected function waitForAiResponse($threadId, $responseId ) : \OpenAI\Responses\Threads\Runs\ThreadRunResponse
+    protected function waitForAiResponse($threadId, $responseId ) : array
     {
+        $ai = new OpenAiApi();
         //Pool the response status
         $time = time();
         do {
-            $timeOut = (time() - $time) > config('ai_wait_timeout', 10);
-            usleep(config('poll_sleep_time', 400));
-            $response = OpenBaseAI::threads()->runs()
-                ->retrieve($threadId, $responseId);
+            $timeOut = (time() - $time) > config('app.ai_wait_timeout', 10);
+            usleep(config('app.poll_sleep_time', 400));
+
+            $response = $ai->threads_runs_retrieve($threadId,$responseId);
             //TODO: We can have a bunch of statuses here!
-        } while ($response->status != 'completed' && !$timeOut);
+        } while ($response['status'] != 'completed' && !$timeOut);
 
         return $response;
 
     }
 
-    protected function getTextMessageFromAI(ThreadMessageListResponse $list)
+    protected function getTextMessageFromAI(array $list)
     {
         $buffer = '';
-        foreach ($list->data as $message) {
-            $buffer .= $message->content[0]->text->value;
+        foreach ($list['data'] as $message) {
+            $buffer .= $message['content'][0]['text']['value'];
         }
         return $buffer;
     }
@@ -91,25 +92,26 @@ class OpenAiApiController extends Controller
 
         return $referencedProducts;
     }
-    protected function getAnnotationsFromAI(ThreadMessageListResponse $list) : array
+    protected function getAnnotationsFromAI(array $messageResponse) : array
     {
+        $ai = new OpenAiApi();
         $formattedAnnotations = [];
-        foreach ($list->data as $message) {
+        foreach ($messageResponse['data'] as $message) {
             $annotations = [];
             $productAnnotations = [];
 
             //Link annotation text to file names...
-            foreach ($message->content[0]->text->annotations as $annotation) {
-                if($annotation->fileCitation?->fileId){
+            foreach ($message['content'][0]['text']['annotations'] as $annotation) {
+                if($annotation['file_citation']['file_id']??null){
                     //TODO: We should be caching these...
-                    $fileResponse = OpenBaseAI::files()->retrieve($annotation->fileCitation->fileId);
+                    $fileName = $ai->files_get_file_name($annotation['file_citation']['file_id']);
                     //TODO: A more abstract resolver/validator - now we assume that the relevant file starts with this string
-                    if(str_starts_with($fileResponse->filename, "article-")){
-                        $annotations[$annotation->text] = $fileResponse->filename;
+                    if(str_starts_with($fileName, "article-")){
+                        $annotations[$annotation['text']] = $fileName;
                         continue;
                     }
-                    if(str_starts_with($fileResponse->filename, "product-")){
-                        $productAnnotations[$annotation->text] = $fileResponse->filename;
+                    if(str_starts_with($fileName, "product-")){
+                        $productAnnotations[$annotation['text']] = $fileName;
                     }
                 }
             }
@@ -154,10 +156,11 @@ class OpenAiApiController extends Controller
         $assistantId = config('assistant_id', config('app.open_ai_agent_id'));
         $prompt = $request->get('prompt');
         $threadId = session()->get("threadId", null);
+        $ai = new OpenAiApi();
 
         if (!$threadId) {
             //Must start a new conversation
-            $response = OpenBaseAI::threads()->createAndRun([
+            $response = $ai->threads_create_and_run([
                 'assistant_id' => $assistantId,
                 'model' => 'gpt-3.5-turbo',
                 'thread' => [
@@ -170,18 +173,18 @@ class OpenAiApiController extends Controller
                 ],
             ]);
 
-            $threadId = $response->threadId;
-            $responseId = $response->id;
+            $runId = $response['id'];
+            $threadId = $response['thread_id'];
             session()->put("threadId", $threadId);
             OpenAiMessage::create([
                 'assistant_id' => $assistantId,
                 'thread_id' => $threadId,
-                'run_id' => $responseId,
+                'run_id' => $runId,
                 'raw_message' => print_r($threadId, 1),
                 'prompt' => $prompt,
             ]);
         } else {
-            $response = OpenBaseAI::threads()->runs()->create($threadId, [
+            $response = $ai->threads_runs_create($threadId, [
                 'assistant_id' => $assistantId,
                 'additional_messages' => [
                     [
@@ -190,28 +193,28 @@ class OpenAiApiController extends Controller
                     ]
                 ],
             ]);
-            $responseId = $response->id;
+            $runId = $response['id'];
             OpenAiMessage::create([
                 'assistant_id' => $assistantId,
                 'thread_id' => $threadId,
-                'run_id' => $responseId,
+                'run_id' => $runId,
                 'raw_message' => print_r($response, 1),
                 'prompt' => $prompt,
             ]);
         }
 
         //Pool the response status
-        $response = $this->waitForAiResponse($threadId,$responseId);
+        $response = $this->waitForAiResponse($threadId, $runId);
 
         OpenAiMessage::create([
             'assistant_id' => $assistantId,
             'thread_id' => $threadId,
-            'run_id' => $responseId,
+            'run_id' => $runId,
             'raw_message' => print_r($response, 1),
             'prompt' => $prompt,
         ]);
 
-        if ($response->status != 'completed') {
+        if ($response['status'] != 'completed') {
             \Log::error( "Failed to get an answer from ai.", ['response' => $response] );
             return [
                 'text' => "Failed to get an answer from AI. Try to reset the conversation.",
@@ -220,21 +223,20 @@ class OpenAiApiController extends Controller
         }
 
         //Fetch the messages from the last run!
-        $list = OpenBaseAI::threads()->messages()
-            ->list($threadId, [
-                'run_id' => $response->id,
-            ]);
+        $messageResponse = $ai->threads_messages_list($threadId, [
+            'run_id' => $runId,
+        ]);
 
         //AI Text Response
-        $message = $this->getTextMessageFromAI($list);
+        $message = $this->getTextMessageFromAI($messageResponse);
 
-        $annotations = $this->getAnnotationsFromAI($list);
+        $annotations = $this->getAnnotationsFromAI($messageResponse);
 
         OpenAiMessage::create([
             'assistant_id' => $assistantId,
             'thread_id' => $threadId,
-            'run_id' => $responseId,
-            'raw_message' => print_r($list, 1),
+            'run_id' => $runId,
+            'raw_message' => print_r($messageResponse, 1),
             'raw_annotations' => json_encode($annotations, JSON_PRETTY_PRINT),
             'prompt' => $prompt,
         ]);
@@ -250,7 +252,7 @@ class OpenAiApiController extends Controller
             'annotations' => $annotations,
             'assistant_id' => $assistantId,
             'thread_id' => $threadId,
-            'run_id' => $responseId,
+            'run_id' => $runId,
         ];
     }
     public function voteMessage(Request $request)
