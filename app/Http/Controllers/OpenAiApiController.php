@@ -23,7 +23,6 @@ class OpenAiApiController extends Controller
     }
 
     protected function getToolResult( $name, $args ){
-        //TODO: these should be logged!
         if($name == 'list_all_the_products'){
             return [
                 [
@@ -65,6 +64,22 @@ class OpenAiApiController extends Controller
             $functionName = $toolCall['function']['name'];
             $arguments =  $toolCall['function']['arguments'];
             $output = $this->getToolResult($functionName,$arguments);
+            OpenAiMessage::create([
+                'assistant_id' => $response['assistant_id'],
+                'type' => 'tool_call',
+                'thread_id' => $response['thread_id'],
+                'run_id' => $response['id'],
+                'raw_response' => '',
+                'metadata' => json_encode([
+                    "tool_call" => [
+                        "function" => $functionName,
+                        "arguments" => $arguments,
+                        "output" => $output,
+                    ],
+                ], JSON_PRETTY_PRINT),
+                'prompt' => '',
+            ]);
+
             $outputs []= [
                 'tool_call_id' => $toolCall['id'],
                 'output' => json_encode($output, JSON_PRETTY_PRINT),
@@ -242,9 +257,10 @@ class OpenAiApiController extends Controller
             session()->put("threadId", $threadId);
             OpenAiMessage::create([
                 'assistant_id' => $assistantId,
+                'type' => 'new_thread',
                 'thread_id' => $threadId,
                 'run_id' => $runId,
-                'raw_message' => print_r($threadId, 1),
+                'raw_response' => json_encode($response, JSON_PRETTY_PRINT),
                 'prompt' => $prompt,
             ]);
         } else {
@@ -260,9 +276,10 @@ class OpenAiApiController extends Controller
             $runId = $response['id'];
             OpenAiMessage::create([
                 'assistant_id' => $assistantId,
+                'type' => 'update_thread',
                 'thread_id' => $threadId,
                 'run_id' => $runId,
-                'raw_message' => print_r($response, 1),
+                'raw_response' => json_encode($response, JSON_PRETTY_PRINT),
                 'prompt' => $prompt,
             ]);
         }
@@ -272,16 +289,17 @@ class OpenAiApiController extends Controller
 
         OpenAiMessage::create([
             'assistant_id' => $assistantId,
+            'type' => 'ai_response',
             'thread_id' => $threadId,
             'run_id' => $runId,
-            'raw_message' => print_r($response, 1),
+            'raw_response' => json_encode($response, JSON_PRETTY_PRINT),
             'prompt' => $prompt,
         ]);
 
         if ($response['status'] != 'completed') {
             \Log::error( "Failed to get an answer from ai.", ['response' => $response] );
             return [
-                'text' => "Failed to get an answer from AI. Try to reset the conversation. Status was {$response['status']}.",
+                'text' => "Failed to get an answer from AI. Try to reset the conversation. Status was [{$response['status']}].",
                 'source' => 'ai',
                 'assistant_id' => $assistantId,
                 'thread_id' => $threadId,
@@ -301,10 +319,11 @@ class OpenAiApiController extends Controller
 
         OpenAiMessage::create([
             'assistant_id' => $assistantId,
+            'type' => 'message_retrieved',
             'thread_id' => $threadId,
             'run_id' => $runId,
-            'raw_message' => print_r($messageResponse, 1),
-            'raw_annotations' => json_encode($annotations, JSON_PRETTY_PRINT),
+            'raw_response' => json_encode($response, JSON_PRETTY_PRINT),
+            'metadata' => json_encode($annotations, JSON_PRETTY_PRINT),
             'prompt' => $prompt,
         ]);
 

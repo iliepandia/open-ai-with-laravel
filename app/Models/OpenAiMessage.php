@@ -11,7 +11,9 @@ class OpenAiMessage extends Model
         'thread_id',
         'run_id',
         'prompt',
-        'raw_message',
-        'raw_annotations',
+        'type',
+        'raw_response',
+        'metadata',
+        'notes',
     ];
 }
