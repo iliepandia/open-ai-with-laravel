@@ -15,6 +15,7 @@ Route::get('/', function () {
     ]);
 });
 
+
 Route::get('/dashboard', function () {
     $userId = \request()->user()->id;
     $threadId = session()->get('threadId', 'not-set');
@@ -34,6 +35,8 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+
+    Route::get('/tests', [\App\Http\Controllers\OpenAiApiController::class, 'tests'])->name('tests');
 
     Route::prefix('api')->middleware(['throttle:ai-call'])->group(function () {
         Route::post('ask-ai', [\App\Http\Controllers\OpenAiApiController::class, 'askAi']);

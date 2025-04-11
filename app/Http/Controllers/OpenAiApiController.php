@@ -6,9 +6,11 @@ use App\Http\Requests\PromptRequest;
 use App\Models\Conversation;
 use App\Models\OpenAiMessage;
 use App\Models\WpPost;
+use App\Services\OpenAi\OpenAiApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use OpenAI\Laravel\Facades\OpenAI as OpenBaseAI;
+use OpenAI\Resources\Batches;
 use OpenAI\Responses\Threads\Messages\ThreadMessageListResponse;
 
 class OpenAiApiController extends Controller
@@ -292,4 +294,8 @@ class OpenAiApiController extends Controller
         return redirect()->route('dashboard');
     }
 
+    public function tests()
+    {
+        return "playground";
+    }
 }
